@@ -16,9 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Delete previous generated SVG
+        run: rm -f profile.svg
+
       - name: Generate profile
         env:
           GH_TOKEN: ${{ github.token }}
+          PROFILE_DATA_TOKEN: ${{ secrets.PROFILE_DATA_TOKEN }}
         run: python3 scripts/generate_profile.py
 
       - name: Commit generated profile
@@ -31,6 +35,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add profile.svg README.md
+          git add -A profile.svg README.md
           git commit -m "chore: refresh profile"
           git push
