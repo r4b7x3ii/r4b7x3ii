@@ -15,16 +15,19 @@ REPOSITORY = "r4b7x3ii/r4b7x3ii"
 PROFILE_SVG = Path("profile.svg")
 README = Path("README.md")
 
-TOKEN = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+# Optional personal token secret for private-repo stats across the whole account.
+# If absent, the script falls back to public-only data where necessary.
+PROFILE_DATA_TOKEN = os.getenv("PROFILE_DATA_TOKEN") or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
 
 
-def request_bytes(url, *, method="GET", data=None, headers=None):
+def request_bytes(url, *, method="GET", data=None, headers=None, token=None):
     h = {
         "User-Agent": f"{USERNAME}-profile-updater",
         "Accept": "*/*",
     }
-    if TOKEN and "api.github.com" in url:
-        h["Authorization"] = f"Bearer {TOKEN}"
+    active_token = token or PROFILE_DATA_TOKEN
+    if active_token and ("api.github.com" in url or "raw.githubusercontent.com" in url):
+        h["Authorization"] = f"Bearer {active_token}"
     if headers:
         h.update(headers)
 
@@ -34,36 +37,72 @@ def request_bytes(url, *, method="GET", data=None, headers=None):
         h.setdefault("Content-Type", "application/json")
 
     req = urllib.request.Request(url, data=body, headers=h, method=method)
-    with urllib.request.urlopen(req, timeout=30) as response:
-        return response.read()
+    with urllib.request.urlopen(req, timeout=45) as response:
+        return response.read(), response.headers
 
 
-def request_json(url, *, method="GET", data=None):
-    return json.loads(
-        request_bytes(
-            url,
-            method=method,
-            data=data,
-            headers={"Accept": "application/vnd.github+json"},
-        ).decode("utf-8")
+def request_json(url, *, method="GET", data=None, token=None):
+    payload, _ = request_bytes(
+        url,
+        method=method,
+        data=data,
+        headers={"Accept": "application/vnd.github+json"},
+        token=token,
     )
+    return json.loads(payload.decode("utf-8"))
 
 
 def request_text(url):
-    return request_bytes(url).decode("utf-8", errors="replace")
+    payload, _ = request_bytes(url)
+    return payload.decode("utf-8", errors="replace")
 
 
 def get_repositories():
-    repos = request_json(
-        f"https://api.github.com/users/{USERNAME}/repos"
-        "?per_page=100&sort=updated&type=owner"
-    )
-    return [
-        repo
-        for repo in repos
+    # Prefer authenticated owner listing. With a PAT secret this can include private repos.
+    repos = []
+    tried_private = False
+    if PROFILE_DATA_TOKEN:
+        tried_private = True
+        try:
+            repos = request_json(
+                "https://api.github.com/user/repos"
+                "?per_page=100&sort=updated&visibility=all&affiliation=owner"
+            )
+        except Exception as exc:
+            print(f"Authenticated repository fetch failed, falling back to public repos: {exc}")
+            repos = []
+
+    if not repos:
+        repos = request_json(
+            f"https://api.github.com/users/{USERNAME}/repos"
+            "?per_page=100&sort=updated&type=owner"
+        )
+
+    repos = [
+        repo for repo in repos
         if repo.get("owner", {}).get("login", "").lower() == USERNAME.lower()
-        and not repo.get("private", False)
     ]
+    return repos, tried_private
+
+
+def get_languages_breakdown(repos):
+    totals = {}
+    for repo in repos:
+        languages_url = repo.get("languages_url")
+        added = False
+        if languages_url:
+            try:
+                lang_map = request_json(languages_url)
+                if isinstance(lang_map, dict) and lang_map:
+                    for lang, value in lang_map.items():
+                        totals[lang] = totals.get(lang, 0) + int(value)
+                    added = True
+            except Exception:
+                added = False
+        if not added:
+            lang = repo.get("language") or "Other"
+            totals[lang] = totals.get(lang, 0) + 1
+    return dict(sorted(totals.items(), key=lambda kv: kv[1], reverse=True))
 
 
 class ContributionParser(HTMLParser):
@@ -85,7 +124,6 @@ class ContributionParser(HTMLParser):
 
 
 def contributions_from_profile():
-    # Read the same public contribution calendar GitHub displays on the profile.
     html = request_text(f"https://github.com/users/{USERNAME}/contributions")
     parser = ContributionParser()
     parser.feed(html)
@@ -93,11 +131,10 @@ def contributions_from_profile():
 
 
 def contributions_from_graphql():
-    # Fallback in case GitHub changes the profile-calendar HTML.
-    if not TOKEN:
+    if not PROFILE_DATA_TOKEN:
         return {}
 
-    query = '''
+    query = """
     query($login: String!) {
       user(login: $login) {
         contributionsCollection {
@@ -112,14 +149,12 @@ def contributions_from_graphql():
         }
       }
     }
-    '''
-
+    """
     payload = request_json(
         "https://api.github.com/graphql",
         method="POST",
         data={"query": query, "variables": {"login": USERNAME}},
     )
-
     levels = {
         "NONE": 0,
         "FIRST_QUARTILE": 1,
@@ -127,7 +162,6 @@ def contributions_from_graphql():
         "THIRD_QUARTILE": 3,
         "FOURTH_QUARTILE": 4,
     }
-
     days = {}
     try:
         weeks = payload["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]
@@ -156,7 +190,6 @@ def get_contributions():
 
 
 def get_avatar_data_uri():
-    # Always use the user's current GitHub avatar.
     user = request_json(f"https://api.github.com/users/{USERNAME}")
     avatar_url = user.get("avatar_url")
     if not avatar_url:
@@ -166,8 +199,7 @@ def get_avatar_data_uri():
         avatar_url,
         headers={"User-Agent": f"{USERNAME}-profile-updater"},
     )
-
-    with urllib.request.urlopen(req, timeout=30) as response:
+    with urllib.request.urlopen(req, timeout=45) as response:
         data = response.read()
         mime = response.headers.get_content_type() or "image/png"
 
@@ -178,8 +210,7 @@ def repo_icon(x, y):
     return f'''<g transform="translate({x} {y})" class="fg">
       <path d="M2 2.5h9.5a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2z"
             fill="none" stroke="currentColor" stroke-width="1.7"/>
-      <path d="M4.5 2.5v13" fill="none"
-            stroke="currentColor" stroke-width="1.7"/>
+      <path d="M4.5 2.5v13" fill="none" stroke="currentColor" stroke-width="1.7"/>
       <circle cx="8.7" cy="8.2" r="1.35" fill="currentColor"/>
     </g>'''
 
@@ -187,153 +218,211 @@ def repo_icon(x, y):
 def title_text(x, y, text):
     return f'''<text x="{x}" y="{y}" class="title">{escape(text)}
       <animate attributeName="fill"
-        values="#ff5f56;#bf5af2;#0a84ff;#30d158;#ff9f0a;#ff5f56"
-        dur="9s" repeatCount="indefinite"/>
+        values="#ff5f56;#ff9f0a;#ffd60a;#30d158;#64d2ff;#0a84ff;#bf5af2;#ff375f;#ff5f56"
+        dur="10s" repeatCount="indefinite"/>
     </text>'''
 
 
-def pixel_game(y):
+def stack_card(x, y, w, h, label, value, color, delay):
+    safe_label = escape(label)
+    safe_value = escape(value)
+    bar_max = max(30, w - 128)
     return f'''
-<!-- Auto-playing pixel game -->
-<rect x="28" y="{y}" width="944" height="286" class="panel line" stroke-width="2.5"/>
-<text x="58" y="{y+58}" class="section">Auto Game</text>
+<g>
+  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" class="bg line" stroke-width="1.3"/>
+  <circle cx="{x+22}" cy="{y+20}" r="7" fill="{color}">
+    <animate attributeName="r" values="7;8.8;7" dur="1.8s" begin="{delay}s" repeatCount="indefinite"/>
+  </circle>
+  <text x="{x+38}" y="{y+25}" class="mono-sm">{safe_label}</text>
+  <rect x="{x+18}" y="{y+34}" width="{bar_max}" height="9" rx="4.5" fill="var(--panel2)"/>
+  <rect x="{x+18}" y="{y+34}" width="0" height="9" rx="4.5" fill="{color}">
+    <animate attributeName="width" from="0" to="{bar_max}" dur="1.2s" begin="{delay}s" fill="freeze"/>
+  </rect>
+  <text x="{x+w-12}" y="{y+26}" text-anchor="end" class="mono-xs">{safe_value}</text>
+</g>'''
 
-<rect x="52" y="{y+88}" width="896" height="162" class="bg line" stroke-width="2.5"/>
-<rect x="52" y="{y+88}" width="896" height="38" class="panel2 line" stroke-width="2.5"/>
-<circle cx="77" cy="{y+107}" r="7" fill="none" class="line" stroke-width="2"/>
-<circle cx="100" cy="{y+107}" r="7" fill="none" class="line" stroke-width="2"/>
-<text x="129" y="{y+113}" class="mono-sm">bug-runner.exe</text>
-<text x="814" y="{y+113}" class="mono-xs">AUTO
-  <animate attributeName="opacity" values=".35;1;.35" dur="1s" repeatCount="indefinite"/>
+
+def build_stack_panel(stack_items, repo_count, private_capable, y):
+    colors = ["#ff5f56", "#ff9f0a", "#ffd60a", "#30d158", "#64d2ff", "#bf5af2"]
+    panel = [
+        f'''
+<rect x="28" y="{y}" width="944" height="252" class="panel line" stroke-width="2.5"/>
+<text x="58" y="{y+58}" class="section">Profile Stack</text>
+<text x="760" y="{y+52}" class="mono-xs">{repo_count} repos scanned</text>
+<text x="760" y="{y+72}" class="mono-xs">{'public + private' if private_capable else 'public only'}</text>
+'''
+    ]
+    cols = 2
+    card_w = 430
+    card_h = 56
+    start_x = 58
+    start_y = y + 92
+    gap_x = 26
+    gap_y = 16
+
+    for i, item in enumerate(stack_items[:6]):
+        row = i // cols
+        col = i % cols
+        cx = start_x + col * (card_w + gap_x)
+        cy = start_y + row * (card_h + gap_y)
+        label = item["label"]
+        value = item["value"]
+        color = colors[i % len(colors)]
+        panel.append(stack_card(cx, cy, card_w, card_h, label, value, color, i * 0.16))
+    return "".join(panel)
+
+
+def build_game_panel(y):
+    return f'''
+<rect x="28" y="{y}" width="944" height="294" class="panel line" stroke-width="2.5"/>
+<text x="58" y="{y+58}" class="section">Wave Runner</text>
+
+<rect x="52" y="{y+88}" width="896" height="172" class="bg line" stroke-width="2.5"/>
+<rect x="52" y="{y+88}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
+<circle cx="77" cy="{y+109}" r="7" fill="none" class="line" stroke-width="2"/>
+<circle cx="100" cy="{y+109}" r="7" fill="none" class="line" stroke-width="2"/>
+<text x="129" y="{y+115}" class="mono-sm">wave-runner.exe</text>
+
+<text x="860" y="{y+115}" class="mono-xs" text-anchor="end">score:</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">000</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="1;0;0;0;0;0;0;0" keyTimes="0;.12;.13;1" dur="4s" repeatCount="indefinite"/>
+  001
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;1;0;0;0;0;0;0" keyTimes="0;.12;.24;.25;1" dur="4s" repeatCount="indefinite"/>
+  002
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;1;0;0;0;0;0" keyTimes="0;.24;.36;.37;1" dur="4s" repeatCount="indefinite"/>
+  003
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;1;0;0;0;0" keyTimes="0;.36;.48;.49;1" dur="4s" repeatCount="indefinite"/>
+  004
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;1;0;0;0" keyTimes="0;.48;.60;.61;1" dur="4s" repeatCount="indefinite"/>
+  005
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;1;0;0" keyTimes="0;.60;.72;.73;1" dur="4s" repeatCount="indefinite"/>
+  006
+</text>
+<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;0;1;0" keyTimes="0;.72;.84;.85;1" dur="4s" repeatCount="indefinite"/>
+  007
 </text>
 
 <g fill="var(--muted)">
-  <rect x="190" y="{y+147}" width="4" height="4">
-    <animate attributeName="opacity" values=".15;.8;.15" dur="1.8s" repeatCount="indefinite"/>
-  </rect>
-  <rect x="434" y="{y+157}" width="4" height="4">
-    <animate attributeName="opacity" values=".8;.15;.8" dur="2.4s" repeatCount="indefinite"/>
-  </rect>
-  <rect x="704" y="{y+143}" width="4" height="4">
-    <animate attributeName="opacity" values=".2;1;.2" dur="1.3s" repeatCount="indefinite"/>
-  </rect>
+  <rect x="140" y="{y+146}" width="4" height="4"><animate attributeName="opacity" values=".2;1;.2" dur="1.6s" repeatCount="indefinite"/></rect>
+  <rect x="418" y="{y+160}" width="4" height="4"><animate attributeName="opacity" values=".8;.25;.8" dur="2.2s" repeatCount="indefinite"/></rect>
+  <rect x="730" y="{y+148}" width="4" height="4"><animate attributeName="opacity" values=".15;.85;.15" dur="1.1s" repeatCount="indefinite"/></rect>
 </g>
 
-<line x1="78" y1="{y+220}" x2="922" y2="{y+220}" class="line" stroke-width="3"/>
-<g stroke="var(--softline)" stroke-width="2">
-  <line x1="110" y1="{y+228}" x2="150" y2="{y+228}"/>
-  <line x1="315" y1="{y+228}" x2="370" y2="{y+228}"/>
-  <line x1="612" y1="{y+228}" x2="680" y2="{y+228}"/>
-  <line x1="810" y1="{y+228}" x2="865" y2="{y+228}"/>
+<line x1="90" y1="{y+226}" x2="910" y2="{y+226}" class="line" stroke-width="3"/>
+
+<g opacity="0.95">
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="760 0" to="-120 0" dur="4s" repeatCount="indefinite"/>
+    <path d="M0 {y+226} q12 -22 24 0 q12 22 24 0 q12 -22 24 0 q12 22 24 0 v18 h-96 z" fill="#64d2ff"/>
+    <path d="M8 {y+226} q12 -14 24 0 q12 14 24 0 q12 -14 24 0" fill="none" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.46;.47;1" dur="4s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="translate" from="980 0" to="80 0" dur="4s" begin="2s" repeatCount="indefinite"/>
+    <path d="M0 {y+226} q12 -28 24 0 q12 28 24 0 q12 -28 24 0 q12 28 24 0 v18 h-96 z" fill="#0a84ff"/>
+    <path d="M8 {y+226} q12 -18 24 0 q12 18 24 0 q12 -18 24 0" fill="none" stroke="#ffffff" stroke-width="2"/>
+  </g>
 </g>
 
-<!-- player -->
-<g transform="translate(0 0)" class="fg">
-  <animateTransform attributeName="transform" type="translate"
-    values="0 0;0 0;0 -42;0 -42;0 0;0 0"
-    keyTimes="0;.29;.38;.49;.58;1"
-    dur="3.8s" repeatCount="indefinite"/>
-  <rect x="154" y="{y+186}" width="16" height="16" fill="currentColor"/>
-  <rect x="150" y="{y+202}" width="24" height="10" fill="currentColor"/>
-  <rect x="150" y="{y+212}" width="7" height="8" fill="currentColor"/>
-  <rect x="167" y="{y+212}" width="7" height="8" fill="currentColor"/>
-  <rect x="165" y="{y+190}" width="3" height="3" fill="var(--bg)"/>
-</g>
-
-<!-- moving bug -->
 <g class="fg">
   <animateTransform attributeName="transform" type="translate"
-    from="720 0" to="-30 0" dur="3.8s" repeatCount="indefinite"/>
-  <rect x="100" y="{y+202}" width="20" height="14" fill="currentColor"/>
-  <rect x="96" y="{y+207}" width="4" height="4" fill="currentColor"/>
-  <rect x="120" y="{y+207}" width="4" height="4" fill="currentColor"/>
-  <rect x="102" y="{y+198}" width="4" height="4" fill="currentColor"/>
-  <rect x="114" y="{y+198}" width="4" height="4" fill="currentColor"/>
+    values="0 0;0 0;0 -34;0 -34;0 -8;0 0;0 0"
+    keyTimes="0;.22;.28;.40;.52;.60;1"
+    dur="4s" repeatCount="indefinite"/>
+  <rect x="168" y="{y+191}" width="13" height="14" fill="currentColor"/>
+  <rect x="163" y="{y+205}" width="23" height="8" fill="currentColor"/>
+  <rect x="163" y="{y+213}" width="7" height="9" fill="currentColor">
+    <animate attributeName="height" values="9;5;9;5;9" dur="0.45s" repeatCount="indefinite"/>
+  </rect>
+  <rect x="179" y="{y+213}" width="7" height="9" fill="currentColor">
+    <animate attributeName="height" values="5;9;5;9;5" dur="0.45s" repeatCount="indefinite"/>
+  </rect>
+  <rect x="176" y="{y+194}" width="3" height="3" fill="var(--bg)"/>
 </g>
 
-<!-- floating pickup -->
-<g class="fg">
-  <animateTransform attributeName="transform" type="translate"
-    values="0 0;0 -8;0 0" dur="1.2s" repeatCount="indefinite"/>
-  <rect x="500" y="{y+163}" width="12" height="12" fill="none"
-        stroke="currentColor" stroke-width="3"/>
-  <rect x="504" y="{y+167}" width="4" height="4" fill="currentColor"/>
+<g opacity="0">
+  <animate attributeName="opacity" values="0;0;0;0;1;1;0" keyTimes="0;.68;.70;.72;.74;.82;1" dur="4s" repeatCount="indefinite"/>
+  <circle cx="220" cy="{y+210}" r="4" fill="#64d2ff"/>
+  <circle cx="229" cy="{y+205}" r="3" fill="#64d2ff"/>
+  <circle cx="237" cy="{y+213}" r="4" fill="#0a84ff"/>
+  <circle cx="246" cy="{y+207}" r="3" fill="#64d2ff"/>
+</g>
+
+<g opacity="0">
+  <animate attributeName="opacity" values="0;0;0;0;1;1;0;0" keyTimes="0;.68;.70;.73;.74;.84;.92;1" dur="4s" repeatCount="indefinite"/>
+  <rect x="356" y="{y+148}" width="286" height="58" rx="12" fill="#000000"/>
+  <text x="499" y="{y+184}" text-anchor="middle" fill="#ffffff"
+        font-family="ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace"
+        font-size="22">GAME OVER // RESTART</text>
 </g>
 '''
 
 
-def build_svg(repos, contributions, avatar_uri):
+def build_svg(repos, contributions, avatar_uri, languages, private_capable):
     repo_count = len(repos)
+    top_langs = list(languages.items())[:5]
+    stack_items = []
+    for lang, value in top_langs:
+        if isinstance(value, int) and value > 50:
+            shown = f"{value} bytes"
+        else:
+            shown = str(value)
+        stack_items.append({"label": lang, "value": shown})
+    stack_items.append({"label": "Repos", "value": str(repo_count)})
 
     W = 1000
     chart_y = 460
     chart_h = 360
-    game_y = chart_y + chart_h + 28
-    game_h = 286
-    repos_y = game_y + game_h + 28
+    stack_y = chart_y + chart_h + 28
+    stack_y_h = 252
+    game_y = stack_y + stack_y_h + 28
+    game_y_h = 294
+    repos_y = game_y + game_y_h + 28
 
     row_h = 68
     repo_box_h = 92 + max(1, repo_count) * row_h
     H = repos_y + repo_box_h + 28
 
-    out = [f'''<svg xmlns="http://www.w3.org/2000/svg"
-  width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+    out = [f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
 <style>
   :root {{
     --bg:#ffffff; --panel:#f5f5f5; --panel2:#eeeeee;
     --fg:#111111; --muted:#5d5d5d; --line:#111111; --softline:#b7b7b7;
-    --cell0:#ececec; --cell1:#c9c9c9; --cell2:#969696;
-    --cell3:#5c5c5c; --cell4:#111111;
+    --cell0:#ececec; --cell1:#c9c9c9; --cell2:#969696; --cell3:#5c5c5c; --cell4:#111111;
   }}
   @media (prefers-color-scheme: dark) {{
     :root {{
       --bg:#0d1117; --panel:#161b22; --panel2:#21262d;
       --fg:#f0f6fc; --muted:#8b949e; --line:#f0f6fc; --softline:#484f58;
-      --cell0:#21262d; --cell1:#30363d; --cell2:#6e7681;
-      --cell3:#b1bac4; --cell4:#f0f6fc;
+      --cell0:#21262d; --cell1:#30363d; --cell2:#6e7681; --cell3:#b1bac4; --cell4:#f0f6fc;
     }}
   }}
-
-  .bg{{fill:var(--bg)}}
-  .panel{{fill:var(--panel)}}
-  .panel2{{fill:var(--panel2)}}
-  .fg{{fill:var(--fg);color:var(--fg)}}
-  .muted{{fill:var(--muted)}}
-  .line{{stroke:var(--line)}}
-  .softline{{stroke:var(--softline)}}
-  .title{{
-    font:800 62px ui-sans-serif,system-ui,-apple-system,
-         BlinkMacSystemFont,"Segoe UI",sans-serif;
-  }}
-  .section{{
-    font:800 36px ui-sans-serif,system-ui,-apple-system,
-         BlinkMacSystemFont,"Segoe UI",sans-serif;
-    fill:var(--fg);
-  }}
-  .mono{{
-    font:20px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-    fill:var(--fg);
-  }}
-  .mono-sm{{
-    font:16px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-    fill:var(--fg);
-  }}
-  .mono-xs{{
-    font:14px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-    fill:var(--muted);
-  }}
-  .repo{{
-    font:700 21px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-    fill:var(--fg);
-  }}
+  .bg{{fill:var(--bg)}} .panel{{fill:var(--panel)}} .panel2{{fill:var(--panel2)}}
+  .fg{{fill:var(--fg);color:var(--fg)}} .muted{{fill:var(--muted)}}
+  .line{{stroke:var(--line)}} .softline{{stroke:var(--softline)}}
+  .title{{font:800 62px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+  .section{{font:800 36px ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:var(--fg)}}
+  .mono{{font:20px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;fill:var(--fg)}}
+  .mono-sm{{font:16px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;fill:var(--fg)}}
+  .mono-xs{{font:14px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;fill:var(--muted)}}
+  .repo{{font:700 21px ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;fill:var(--fg)}}
   .pixel{{shape-rendering:crispEdges}}
 </style>
 
 <rect class="bg" width="{W}" height="{H}" rx="8"/>
-<rect x="8" y="8" width="984" height="{H-16}"
-      fill="none" class="line" stroke-width="3"/>
-
-<!-- Hero -->
+<rect x="8" y="8" width="984" height="{H-16}" fill="none" class="line" stroke-width="3"/>
 ''']
 
     out.append(title_text(58, 150, "Hello."))
@@ -343,53 +432,31 @@ def build_svg(repos, contributions, avatar_uri):
 <text x="61" y="268" class="mono">I code, error happens, i sleep</text>
 <text x="61" y="298" class="mono">like nothing happened.</text>
 
-<rect x="60" y="336" width="238" height="56"
-      class="panel2 line" stroke-width="2"/>
+<rect x="60" y="336" width="238" height="56" class="panel2 line" stroke-width="2"/>
 <text x="90" y="372" class="mono">Known as Werus</text>
 
-<!-- Avatar -->
-<rect x="548" y="55" width="384" height="342"
-      class="panel line" stroke-width="3"/>
-<rect x="548" y="55" width="384" height="38"
-      class="panel2 line" stroke-width="3"/>
+<rect x="548" y="55" width="384" height="342" class="panel line" stroke-width="3"/>
+<rect x="548" y="55" width="384" height="38" class="panel2 line" stroke-width="3"/>
 <circle cx="896" cy="74" r="8" fill="none" class="line" stroke-width="2"/>
 <circle cx="870" cy="74" r="8" fill="none" class="line" stroke-width="2"/>
 <text x="566" y="80" class="mono-sm">{USERNAME}.exe</text>
-
-<defs>
-  <clipPath id="avatarClip">
-    <rect x="560" y="104" width="360" height="280" rx="2"/>
-  </clipPath>
-</defs>
+<defs><clipPath id="avatarClip"><rect x="560" y="104" width="360" height="280" rx="2"/></clipPath></defs>
 ''')
 
     if avatar_uri:
-        out.append(
-            f'<image href="{avatar_uri}" x="560" y="104" width="360" height="280" '
-            f'preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>'
-        )
+        out.append(f'<image href="{avatar_uri}" x="560" y="104" width="360" height="280" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>')
     else:
         out.append('<rect x="560" y="104" width="360" height="280" class="panel2"/>')
-
-    out.append(
-        '<rect x="560" y="104" width="360" height="280" '
-        'fill="none" class="line" stroke-width="2"/>'
-    )
+    out.append('<rect x="560" y="104" width="360" height="280" fill="none" class="line" stroke-width="2"/>')
 
     out.append(f'''
-<!-- Contribution chart -->
-<rect x="28" y="{chart_y}" width="944" height="{chart_h}"
-      class="panel line" stroke-width="2.5"/>
+<rect x="28" y="{chart_y}" width="944" height="{chart_h}" class="panel line" stroke-width="2.5"/>
 <text x="58" y="{chart_y+58}" class="section">Contribution Chart</text>
 
-<rect x="52" y="{chart_y+92}" width="896" height="224"
-      class="bg line" stroke-width="2.5"/>
-<rect x="52" y="{chart_y+92}" width="896" height="42"
-      class="panel2 line" stroke-width="2.5"/>
-<circle cx="77" cy="{chart_y+113}" r="7"
-        fill="none" class="line" stroke-width="2"/>
-<circle cx="100" cy="{chart_y+113}" r="7"
-        fill="none" class="line" stroke-width="2"/>
+<rect x="52" y="{chart_y+92}" width="896" height="224" class="bg line" stroke-width="2.5"/>
+<rect x="52" y="{chart_y+92}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
+<circle cx="77" cy="{chart_y+113}" r="7" fill="none" class="line" stroke-width="2"/>
+<circle cx="100" cy="{chart_y+113}" r="7" fill="none" class="line" stroke-width="2"/>
 <text x="129" y="{chart_y+119}" class="mono-sm">contributions.exe</text>
 ''')
 
@@ -405,34 +472,19 @@ def build_svg(repos, contributions, avatar_uri):
         if month != last_month:
             x = 122 + c * 15
             if x < 915:
-                out.append(
-                    f'<text x="{x}" y="{chart_y+164}" class="mono-xs">{month}</text>'
-                )
+                out.append(f'<text x="{x}" y="{chart_y+164}" class="mono-xs">{month}</text>')
             last_month = month
 
-    for label, yy in [
-        ("Mon", chart_y + 197),
-        ("Wed", chart_y + 227),
-        ("Fri", chart_y + 257),
-    ]:
+    for label, yy in [("Mon", chart_y+197), ("Wed", chart_y+227), ("Fri", chart_y+257)]:
         out.append(f'<text x="70" y="{yy}" class="mono-xs">{label}</text>')
 
-    start_x = 122
-    start_y = chart_y + 178
-    cell = 11
-    gap = 4
-
+    start_x, start_y, cell, gap = 122, chart_y + 178, 11, 4
     for c in range(53):
         week_start = first_sunday + timedelta(weeks=c)
         for r in range(7):
             day = week_start + timedelta(days=r)
             level = contributions.get(day.isoformat(), 0)
-            out.append(
-                f'<rect x="{start_x + c*(cell+gap)}" '
-                f'y="{start_y + r*(cell+gap)}" '
-                f'width="{cell}" height="{cell}" '
-                f'fill="var(--cell{level})" class="pixel"/>'
-            )
+            out.append(f'<rect x="{start_x+c*(cell+gap)}" y="{start_y+r*(cell+gap)}" width="{cell}" height="{cell}" fill="var(--cell{level})" class="pixel"/>')
 
     out.append(f'''
 <text x="70" y="{chart_y+298}" class="mono-xs">Less</text>
@@ -444,43 +496,33 @@ def build_svg(repos, contributions, avatar_uri):
 <text x="234" y="{chart_y+298}" class="mono-xs">More</text>
 ''')
 
-    out.append(pixel_game(game_y))
+    out.append(build_stack_panel(stack_items, repo_count, private_capable, stack_y))
+    out.append(build_game_panel(game_y))
 
     out.append(f'''
-<!-- Repository list -->
-<rect x="28" y="{repos_y}" width="944" height="{repo_box_h}"
-      class="panel line" stroke-width="2.5"/>
+<rect x="28" y="{repos_y}" width="944" height="{repo_box_h}" class="panel line" stroke-width="2.5"/>
 <text x="58" y="{repos_y+58}" class="section">Repository List</text>
 ''')
 
     y0 = repos_y + 86
     if not repos:
-        out.append(
-            f'<text x="70" y="{y0+38}" class="mono">No public repositories found.</text>'
-        )
+        out.append(f'<text x="70" y="{y0+38}" class="mono">No repositories found.</text>')
 
     for i, repo in enumerate(repos):
-        y = y0 + i * row_h
+        y = y0 + i * 68
         name = escape(repo.get("name", ""))
         lang = escape(repo.get("language") or "—")
         stars = repo.get("stargazers_count", 0)
         forks = repo.get("forks_count", 0)
+        privacy = "private" if repo.get("private") else "public"
 
-        out.append(
-            f'<rect x="58" y="{y}" width="884" height="56" '
-            f'class="bg softline" stroke-width="1.5"/>'
-        )
+        out.append(f'<rect x="58" y="{y}" width="884" height="56" class="bg softline" stroke-width="1.5"/>')
         out.append(repo_icon(78, y + 18))
         out.append(f'<text x="112" y="{y+35}" class="repo">{name}</text>')
-        out.append(f'<text x="650" y="{y+34}" class="mono-xs">{lang}</text>')
-        out.append(
-            f'<text x="770" y="{y+34}" class="mono-xs">'
-            f'★ {stars}   ⑂ {forks}</text>'
-        )
-        out.append(
-            f'<rect x="885" y="{y+9}" width="42" height="38" '
-            f'class="panel2 line" stroke-width="1.5"/>'
-        )
+        out.append(f'<text x="582" y="{y+34}" class="mono-xs">{privacy}</text>')
+        out.append(f'<text x="668" y="{y+34}" class="mono-xs">{lang}</text>')
+        out.append(f'<text x="790" y="{y+34}" class="mono-xs">★ {stars}   ⑂ {forks}</text>')
+        out.append(f'<rect x="885" y="{y+9}" width="42" height="38" class="panel2 line" stroke-width="1.5"/>')
         out.append(repo_icon(896, y + 19))
 
     out.append("</svg>")
@@ -488,7 +530,6 @@ def build_svg(repos, contributions, avatar_uri):
 
 
 def write_readme(svg_text):
-    # Cache busting: README changes only when profile.svg content changes.
     version = hashlib.sha256(svg_text.encode("utf-8")).hexdigest()[:12]
     README.write_text(
         f'''<div align="center">
@@ -504,17 +545,23 @@ def write_readme(svg_text):
 
 
 def main():
-    repos = get_repositories()
+    repos, private_capable = get_repositories()
+    languages = get_languages_breakdown(repos)
     contributions = get_contributions()
     avatar_uri = get_avatar_data_uri()
 
-    svg_text = build_svg(repos, contributions, avatar_uri)
+    try:
+        PROFILE_SVG.unlink()
+    except FileNotFoundError:
+        pass
+
+    svg_text = build_svg(repos, contributions, avatar_uri, languages, private_capable)
     PROFILE_SVG.write_text(svg_text, encoding="utf-8")
     write_readme(svg_text)
 
     print(
-        f"Generated {PROFILE_SVG} and refreshed {README} "
-        f"using {len(repos)} public repositories."
+        f"Generated {PROFILE_SVG} and {README} from {len(repos)} repositories "
+        f"({'including private' if private_capable else 'public only'})."
     )
 
 
