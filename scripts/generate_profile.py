@@ -272,105 +272,244 @@ def build_stack_panel(stack_items, repo_count, private_capable, y):
     return "".join(panel)
 
 
+
 def build_game_panel(y):
-    return f'''
+    # Chrome-dino-inspired endless auto-play game rendered with pure SVG animations.
+    # Three phases loop forever, each phase runs faster than the previous one.
+    return f"""
 <rect x="28" y="{y}" width="944" height="294" class="panel line" stroke-width="2.5"/>
-<text x="58" y="{y+58}" class="section">Wave Runner</text>
 
-<rect x="52" y="{y+88}" width="896" height="172" class="bg line" stroke-width="2.5"/>
-<rect x="52" y="{y+88}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
-<circle cx="77" cy="{y+109}" r="7" fill="none" class="line" stroke-width="2"/>
-<circle cx="100" cy="{y+109}" r="7" fill="none" class="line" stroke-width="2"/>
-<text x="129" y="{y+115}" class="mono-sm">wave-runner.exe</text>
+<!-- game viewport -->
+<rect x="52" y="{y+38}" width="896" height="222" class="bg line" stroke-width="2.5"/>
+<rect x="52" y="{y+38}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
+<circle cx="77" cy="{y+59}" r="7" fill="none" class="line" stroke-width="2"/>
+<circle cx="100" cy="{y+59}" r="7" fill="none" class="line" stroke-width="2"/>
+<text x="129" y="{y+65}" class="mono-sm">offline-dino.exe</text>
 
-<text x="860" y="{y+115}" class="mono-xs" text-anchor="end">score:</text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">000</text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="1;0;0;0;0;0;0;0" keyTimes="0;.12;.13;1" dur="4s" repeatCount="indefinite"/>
-  001
+<!-- score -->
+<text x="852" y="{y+65}" class="mono-xs" text-anchor="end">HI 0042</text>
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">0000</text>
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="1;0;0;0;0;0;0;0;0;0" keyTimes="0;.10;.11;1" dur="18s" repeatCount="indefinite"/>
+  0008
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;1;0;0;0;0;0;0" keyTimes="0;.12;.24;.25;1" dur="4s" repeatCount="indefinite"/>
-  002
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;1;0;0;0;0;0;0;0;0" keyTimes="0;.10;.20;.21;1" dur="18s" repeatCount="indefinite"/>
+  0016
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;1;0;0;0;0;0" keyTimes="0;.24;.36;.37;1" dur="4s" repeatCount="indefinite"/>
-  003
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;1;0;0;0;0;0;0;0" keyTimes="0;.20;.30;.31;1" dur="18s" repeatCount="indefinite"/>
+  0024
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;1;0;0;0;0" keyTimes="0;.36;.48;.49;1" dur="4s" repeatCount="indefinite"/>
-  004
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;1;0;0;0;0;0;0" keyTimes="0;.30;.40;.41;1" dur="18s" repeatCount="indefinite"/>
+  0032
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;1;0;0;0" keyTimes="0;.48;.60;.61;1" dur="4s" repeatCount="indefinite"/>
-  005
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;1;0;0;0;0;0" keyTimes="0;.40;.50;.51;1" dur="18s" repeatCount="indefinite"/>
+  0040
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;1;0;0" keyTimes="0;.60;.72;.73;1" dur="4s" repeatCount="indefinite"/>
-  006
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;1;0;0;0;0" keyTimes="0;.50;.60;.61;1" dur="18s" repeatCount="indefinite"/>
+  0048
 </text>
-<text x="915" y="{y+115}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;0;1;0" keyTimes="0;.72;.84;.85;1" dur="4s" repeatCount="indefinite"/>
-  007
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;0;1;0;0;0" keyTimes="0;.60;.70;.71;1" dur="18s" repeatCount="indefinite"/>
+  0058
+</text>
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;0;0;1;0;0" keyTimes="0;.70;.80;.81;1" dur="18s" repeatCount="indefinite"/>
+  0068
+</text>
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;1;0" keyTimes="0;.80;.90;.91;1" dur="18s" repeatCount="indefinite"/>
+  0078
+</text>
+<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
+  <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;0;1" keyTimes="0;.90;.99;1;1" dur="18s" repeatCount="indefinite"/>
+  0090
 </text>
 
-<g fill="var(--muted)">
-  <rect x="140" y="{y+146}" width="4" height="4"><animate attributeName="opacity" values=".2;1;.2" dur="1.6s" repeatCount="indefinite"/></rect>
-  <rect x="418" y="{y+160}" width="4" height="4"><animate attributeName="opacity" values=".8;.25;.8" dur="2.2s" repeatCount="indefinite"/></rect>
-  <rect x="730" y="{y+148}" width="4" height="4"><animate attributeName="opacity" values=".15;.85;.15" dur="1.1s" repeatCount="indefinite"/></rect>
+<!-- environment -->
+<circle cx="800" cy="{y+112}" r="22" fill="none" class="softline" stroke-width="2"/>
+<g class="muted">
+  <path d="M170 {y+120} q10 -10 20 0 q4 -12 18 -8 q14 4 13 16 h-55 q-5 -10 4 -18z" fill="currentColor" opacity="0.55">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-46 0" dur="11s" repeatCount="indefinite"/>
+  </path>
+  <path d="M470 {y+103} q10 -10 20 0 q4 -12 18 -8 q14 4 13 16 h-55 q-5 -10 4 -18z" fill="currentColor" opacity="0.35">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-70 0" dur="16s" repeatCount="indefinite"/>
+  </path>
 </g>
 
-<line x1="90" y1="{y+226}" x2="910" y2="{y+226}" class="line" stroke-width="3"/>
-
-<g opacity="0.95">
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="760 0" to="-120 0" dur="4s" repeatCount="indefinite"/>
-    <path d="M0 {y+226} q12 -22 24 0 q12 22 24 0 q12 -22 24 0 q12 22 24 0 v18 h-96 z" fill="#64d2ff"/>
-    <path d="M8 {y+226} q12 -14 24 0 q12 14 24 0 q12 -14 24 0" fill="none" stroke="#ffffff" stroke-width="2"/>
-  </g>
-  <g opacity="0">
-    <animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.46;.47;1" dur="4s" repeatCount="indefinite"/>
-    <animateTransform attributeName="transform" type="translate" from="980 0" to="80 0" dur="4s" begin="2s" repeatCount="indefinite"/>
-    <path d="M0 {y+226} q12 -28 24 0 q12 28 24 0 q12 -28 24 0 q12 28 24 0 v18 h-96 z" fill="#0a84ff"/>
-    <path d="M8 {y+226} q12 -18 24 0 q12 18 24 0 q12 -18 24 0" fill="none" stroke="#ffffff" stroke-width="2"/>
-  </g>
+<!-- ground -->
+<line x1="76" y1="{y+220}" x2="924" y2="{y+220}" class="line" stroke-width="3"/>
+<g stroke="var(--softline)" stroke-width="2">
+  <line x1="108" y1="{y+228}" x2="148" y2="{y+228}">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-70 0" dur="1.2s" repeatCount="indefinite"/>
+  </line>
+  <line x1="315" y1="{y+228}" x2="365" y2="{y+228}">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-110 0" dur="1.6s" repeatCount="indefinite"/>
+  </line>
+  <line x1="620" y1="{y+228}" x2="690" y2="{y+228}">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-130 0" dur="1.1s" repeatCount="indefinite"/>
+  </line>
+  <line x1="820" y1="{y+228}" x2="880" y2="{y+228}">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-140 0" dur="0.95s" repeatCount="indefinite"/>
+  </line>
 </g>
 
+<!-- phase labels -->
+<text x="786" y="{y+92}" class="mono-xs">speed ×1.0</text>
+<text x="786" y="{y+92}" class="mono-xs">
+  <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;.34;.35;1" dur="18s" repeatCount="indefinite"/>
+  speed ×1.4
+</text>
+<text x="786" y="{y+92}" class="mono-xs">
+  <animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.66;.67;1" dur="18s" repeatCount="indefinite"/>
+  speed ×1.8
+</text>
+
+<!-- dino runner -->
 <g class="fg">
   <animateTransform attributeName="transform" type="translate"
-    values="0 0;0 0;0 -34;0 -34;0 -8;0 0;0 0"
-    keyTimes="0;.22;.28;.40;.52;.60;1"
-    dur="4s" repeatCount="indefinite"/>
-  <rect x="168" y="{y+191}" width="13" height="14" fill="currentColor"/>
-  <rect x="163" y="{y+205}" width="23" height="8" fill="currentColor"/>
-  <rect x="163" y="{y+213}" width="7" height="9" fill="currentColor">
-    <animate attributeName="height" values="9;5;9;5;9" dur="0.45s" repeatCount="indefinite"/>
+    values="
+      0 0;
+      0 0;
+      0 -34;
+      0 -34;
+      0 0;
+      0 0;
+      0 -42;
+      0 -42;
+      0 0;
+      0 0;
+      0 -36;
+      0 -36;
+      0 0;
+      0 0;
+      0 -48;
+      0 -48;
+      0 0;
+      0 0;
+      0 -36;
+      0 -36;
+      0 0;
+      0 -44;
+      0 -44;
+      0 0;
+      0 0"
+    keyTimes="
+      0.00;
+      0.18;
+      0.205;
+      0.255;
+      0.30;
+      0.35;
+      0.392;
+      0.44;
+      0.50;
+      0.54;
+      0.575;
+      0.612;
+      0.66;
+      0.72;
+      0.747;
+      0.785;
+      0.815;
+      0.85;
+      0.874;
+      0.905;
+      0.93;
+      0.944;
+      0.97;
+      0.99;
+      1.0"
+    dur="18s" repeatCount="indefinite"/>
+  <!-- body -->
+  <rect x="155" y="{y+182}" width="24" height="26" fill="currentColor"/>
+  <rect x="178" y="{y+188}" width="10" height="12" fill="currentColor"/>
+  <rect x="149" y="{y+193}" width="8" height="8" fill="currentColor"/>
+  <rect x="160" y="{y+170}" width="15" height="16" fill="currentColor"/>
+  <rect x="171" y="{y+166}" width="8" height="8" fill="currentColor"/>
+  <rect x="173" y="{y+174}" width="3" height="3" fill="var(--bg)"/>
+  <rect x="187" y="{y+194}" width="3" height="14" fill="currentColor"/>
+  <!-- arms -->
+  <rect x="151" y="{y+197}" width="7" height="10" fill="currentColor">
+    <animate attributeName="height" values="10;6;10;6;10" dur="0.33s" repeatCount="indefinite"/>
   </rect>
-  <rect x="179" y="{y+213}" width="7" height="9" fill="currentColor">
-    <animate attributeName="height" values="5;9;5;9;5" dur="0.45s" repeatCount="indefinite"/>
+  <rect x="154" y="{y+206}" width="5" height="7" fill="currentColor"/>
+  <!-- legs -->
+  <rect x="160" y="{y+208}" width="7" height="14" fill="currentColor">
+    <animate attributeName="height" values="14;8;14;8;14" dur="0.30s" repeatCount="indefinite"/>
   </rect>
-  <rect x="176" y="{y+194}" width="3" height="3" fill="var(--bg)"/>
+  <rect x="171" y="{y+208}" width="7" height="14" fill="currentColor">
+    <animate attributeName="height" values="8;14;8;14;8" dur="0.30s" repeatCount="indefinite"/>
+  </rect>
 </g>
 
-<g opacity="0">
-  <animate attributeName="opacity" values="0;0;0;0;1;1;0" keyTimes="0;.68;.70;.72;.74;.82;1" dur="4s" repeatCount="indefinite"/>
-  <circle cx="220" cy="{y+210}" r="4" fill="#64d2ff"/>
-  <circle cx="229" cy="{y+205}" r="3" fill="#64d2ff"/>
-  <circle cx="237" cy="{y+213}" r="4" fill="#0a84ff"/>
-  <circle cx="246" cy="{y+207}" r="3" fill="#64d2ff"/>
+<!-- slow obstacles -->
+<g class="fg">
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1030 0" dur="5.4s" begin="0s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+192}" width="10" height="28" fill="currentColor"/>
+    <rect x="942" y="{y+198}" width="9" height="22" fill="currentColor"/>
+    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
+    <rect x="939" y="{y+186}" width="4" height="9" fill="currentColor"/>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1030 0" dur="5.4s" begin="1.8s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+188}" width="11" height="32" fill="currentColor"/>
+    <rect x="944" y="{y+196}" width="9" height="24" fill="currentColor"/>
+    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
+    <rect x="940" y="{y+182}" width="4" height="10" fill="currentColor"/>
+  </g>
 </g>
 
-<g opacity="0">
-  <animate attributeName="opacity" values="0;0;0;0;1;1;0;0" keyTimes="0;.68;.70;.73;.74;.84;.92;1" dur="4s" repeatCount="indefinite"/>
-  <rect x="356" y="{y+148}" width="286" height="58" rx="12" fill="#000000"/>
-  <text x="499" y="{y+184}" text-anchor="middle" fill="#ffffff"
-        font-family="ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace"
-        font-size="22">GAME OVER // RESTART</text>
+<!-- medium obstacles -->
+<g class="fg" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.33;.34;.66;1" dur="18s" repeatCount="indefinite"/>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1040 0" dur="4.2s" begin="6.1s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+195}" width="8" height="25" fill="currentColor"/>
+    <rect x="941" y="{y+187}" width="11" height="33" fill="currentColor"/>
+    <rect x="924" y="{y+203}" width="5" height="8" fill="currentColor"/>
+    <rect x="944" y="{y+181}" width="4" height="8" fill="currentColor"/>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1040 0" dur="4.2s" begin="7.55s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+192}" width="10" height="28" fill="currentColor"/>
+    <rect x="943" y="{y+201}" width="8" height="19" fill="currentColor"/>
+    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
+    <rect x="940" y="{y+187}" width="4" height="8" fill="currentColor"/>
+  </g>
 </g>
-'''
 
+<!-- fast obstacles -->
+<g class="fg" opacity="0">
+  <animate attributeName="opacity" values="0;0;0;1;1" keyTimes="0;.66;.67;.68;1" dur="18s" repeatCount="indefinite"/>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="12.1s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+195}" width="9" height="25" fill="currentColor"/>
+    <rect x="942" y="{y+189}" width="10" height="31" fill="currentColor"/>
+    <rect x="925" y="{y+204}" width="5" height="8" fill="currentColor"/>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="13.12s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+190}" width="11" height="30" fill="currentColor"/>
+    <rect x="944" y="{y+198}" width="8" height="22" fill="currentColor"/>
+    <rect x="925" y="{y+200}" width="5" height="11" fill="currentColor"/>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="14.05s" repeatCount="indefinite"/>
+    <rect x="930" y="{y+194}" width="8" height="26" fill="currentColor"/>
+    <rect x="941" y="{y+185}" width="11" height="35" fill="currentColor"/>
+    <rect x="944" y="{y+177}" width="4" height="8" fill="currentColor"/>
+  </g>
+</g>
+"""
 
 def build_svg(repos, contributions, avatar_uri, languages, private_capable):
+
     repo_count = len(repos)
     top_langs = list(languages.items())[:5]
     stack_items = []
