@@ -15,8 +15,6 @@ REPOSITORY = "r4b7x3ii/r4b7x3ii"
 PROFILE_SVG = Path("profile.svg")
 README = Path("README.md")
 
-# Optional personal token secret for private-repo stats across the whole account.
-# If absent, the script falls back to public-only data where necessary.
 PROFILE_DATA_TOKEN = os.getenv("PROFILE_DATA_TOKEN")
 API_TOKEN = PROFILE_DATA_TOKEN or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
 
@@ -59,8 +57,8 @@ def request_text(url):
 
 
 def get_repositories():
-    # PROFILE_DATA_TOKEN enables account-wide/private repository discovery.
-    # Without it, fetch every public repository owned by the user.
+    # Without PROFILE_DATA_TOKEN: fetch every public repository owned by the user.
+    # With PROFILE_DATA_TOKEN: fetch all owned repositories, including private ones.
     repos = []
     private_capable = bool(PROFILE_DATA_TOKEN)
 
@@ -146,7 +144,7 @@ def contributions_from_profile():
 
 
 def contributions_from_graphql():
-    if not PROFILE_DATA_TOKEN:
+    if not API_TOKEN:
         return {}
 
     query = """
@@ -287,7 +285,6 @@ def build_stack_panel(stack_items, repo_count, private_capable, y):
     return "".join(panel)
 
 
-
 def build_game_panel(y):
     return f"""
 <rect x="28" y="{y}" width="944" height="294" class="panel line" stroke-width="2.5"/>
@@ -297,84 +294,66 @@ def build_game_panel(y):
 
 <!-- crescent moon -->
 <g>
-  <circle cx="760" cy="{y+142}" r="58" fill="var(--fg)">
-    <animate attributeName="opacity" values=".90;1;.90" dur="5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="786" cy="{y+122}" r="58" fill="var(--bg)"/>
-  <animateTransform attributeName="transform" type="translate"
-    values="0 0;0 -5;0 0" dur="6s" repeatCount="indefinite"/>
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0;0 -6;0 0" dur="6s" repeatCount="indefinite"/>
+    <circle cx="770" cy="{y+142}" r="58" fill="var(--fg)" opacity=".95"/>
+    <circle cx="795" cy="{y+122}" r="58" fill="var(--bg)"/>
+  </g>
 </g>
 
-<!-- large stars -->
+<!-- one floating star -->
 <g class="fg">
-  <path d="M176 {y+115} l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4z" fill="currentColor">
-    <animate attributeName="opacity" values=".25;1;.25" dur="2.4s" repeatCount="indefinite"/>
-    <animateTransform attributeName="transform" type="scale" values="1;1.18;1" additive="sum" dur="2.4s" repeatCount="indefinite"/>
+  <g>
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0;0 -10;0 0" dur="3.4s" repeatCount="indefinite"/>
+    <path d="M210 {y+148} l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5z" fill="currentColor"/>
+  </g>
+</g>
+
+<!-- quiet twinkling stars -->
+<g fill="var(--fg)" opacity=".85">
+  <circle cx="116" cy="{y+118}" r="2"><animate attributeName="opacity" values=".20;.95;.20" dur="2.1s" repeatCount="indefinite"/></circle>
+  <circle cx="170" cy="{y+208}" r="2.4"><animate attributeName="opacity" values=".25;.90;.25" dur="2.8s" repeatCount="indefinite"/></circle>
+  <circle cx="324" cy="{y+102}" r="1.8"><animate attributeName="opacity" values=".18;.85;.18" dur="3.1s" repeatCount="indefinite"/></circle>
+  <circle cx="412" cy="{y+180}" r="2.1"><animate attributeName="opacity" values=".18;.80;.18" dur="2.3s" repeatCount="indefinite"/></circle>
+  <circle cx="520" cy="{y+124}" r="2.2"><animate attributeName="opacity" values=".20;.92;.20" dur="1.9s" repeatCount="indefinite"/></circle>
+  <circle cx="610" cy="{y+205}" r="2"><animate attributeName="opacity" values=".22;.88;.22" dur="2.7s" repeatCount="indefinite"/></circle>
+  <circle cx="874" cy="{y+196}" r="2.1"><animate attributeName="opacity" values=".20;.90;.20" dur="2.5s" repeatCount="indefinite"/></circle>
+</g>
+
+<!-- little sparkle stars -->
+<g class="fg">
+  <path d="M335 {y+160} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
+    <animate attributeName="opacity" values=".15;1;.15" dur="2.0s" repeatCount="indefinite"/>
   </path>
-  <path d="M338 {y+172} l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="currentColor">
-    <animate attributeName="opacity" values=".35;1;.35" dur="3.1s" repeatCount="indefinite"/>
+  <path d="M560 {y+192} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
+    <animate attributeName="opacity" values=".15;1;.15" dur="2.9s" repeatCount="indefinite"/>
   </path>
-  <path d="M560 {y+104} l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4z" fill="currentColor">
-    <animate attributeName="opacity" values=".2;1;.2" dur="1.9s" repeatCount="indefinite"/>
-  </path>
-  <path d="M876 {y+188} l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="currentColor">
-    <animate attributeName="opacity" values=".3;1;.3" dur="2.7s" repeatCount="indefinite"/>
+  <path d="M892 {y+108} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
+    <animate attributeName="opacity" values=".15;1;.15" dur="1.8s" repeatCount="indefinite"/>
   </path>
 </g>
 
-<!-- small drifting stars -->
-<g fill="var(--muted)">
-  <circle cx="110" cy="{y+180}" r="2">
-    <animate attributeName="opacity" values=".1;.9;.1" dur="1.7s" repeatCount="indefinite"/>
-    <animate attributeName="cy" values="{y+180};{y+174};{y+180}" dur="4s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="230" cy="{y+215}" r="2.5">
-    <animate attributeName="opacity" values=".2;1;.2" dur="2.2s" repeatCount="indefinite"/>
-    <animate attributeName="cx" values="230;237;230" dur="5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="292" cy="{y+98}" r="1.8">
-    <animate attributeName="opacity" values=".15;.8;.15" dur="2.8s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="410" cy="{y+126}" r="2.2">
-    <animate attributeName="opacity" values=".1;1;.1" dur="1.5s" repeatCount="indefinite"/>
-    <animate attributeName="cy" values="{y+126};{y+120};{y+126}" dur="3.6s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="486" cy="{y+214}" r="2">
-    <animate attributeName="opacity" values=".2;.9;.2" dur="2.5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="635" cy="{y+184}" r="2.4">
-    <animate attributeName="opacity" values=".15;1;.15" dur="2s" repeatCount="indefinite"/>
-    <animate attributeName="cx" values="635;642;635" dur="4.7s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="705" cy="{y+95}" r="1.8">
-    <animate attributeName="opacity" values=".15;.85;.15" dur="3.2s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="835" cy="{y+112}" r="2.2">
-    <animate attributeName="opacity" values=".2;1;.2" dur="1.8s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="902" cy="{y+228}" r="2">
-    <animate attributeName="opacity" values=".1;.9;.1" dur="2.6s" repeatCount="indefinite"/>
-  </circle>
-</g>
-
-<!-- faint constellation lines -->
-<g fill="none" stroke="var(--softline)" stroke-width="1.2" opacity=".35">
-  <path d="M110 {y+180} L176 {y+129} L230 {y+215} L338 {y+183}"/>
-  <path d="M410 {y+126} L486 {y+214} L560 {y+117} L635 {y+184}"/>
+<!-- subtle hill / horizon -->
+<path d="M90 {y+222} C170 {y+205}, 250 {y+236}, 330 {y+222}
+         S490 {y+206}, 570 {y+222}
+         S730 {y+238}, 810 {y+222}
+         S880 {y+210}, 910 {y+222}"
+      fill="none" class="line" stroke-width="3"/>
+<g stroke="var(--softline)" stroke-width="1.3" opacity=".35" fill="none">
+  <path d="M116 {y+118} L210 {y+170} L324 {y+102}"/>
+  <path d="M412 {y+180} L520 {y+124} L610 {y+205}"/>
 </g>
 """
 
 
 def build_svg(repos, contributions, avatar_uri, languages, private_capable):
-
     repo_count = len(repos)
     top_langs = list(languages.items())[:5]
     stack_items = []
     for lang, value in top_langs:
-        if isinstance(value, int) and value > 50:
-            shown = f"{value} bytes"
-        else:
-            shown = str(value)
+        shown = f"{value} bytes" if isinstance(value, int) and value > 50 else str(value)
         stack_items.append({"label": lang, "value": shown})
     stack_items.append({"label": "Repos", "value": str(repo_count)})
 
