@@ -16,8 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Delete previous generated SVG
-        run: rm -f profile.svg
+      - name: Remove previous generated files
+        run: |
+          rm -f profile.svg
+          rm -f README.md
 
       - name: Generate profile
         env:
