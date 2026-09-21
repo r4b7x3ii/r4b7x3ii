@@ -17,7 +17,8 @@ README = Path("README.md")
 
 # Optional personal token secret for private-repo stats across the whole account.
 # If absent, the script falls back to public-only data where necessary.
-PROFILE_DATA_TOKEN = os.getenv("PROFILE_DATA_TOKEN") or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+PROFILE_DATA_TOKEN = os.getenv("PROFILE_DATA_TOKEN")
+API_TOKEN = PROFILE_DATA_TOKEN or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
 
 
 def request_bytes(url, *, method="GET", data=None, headers=None, token=None):
@@ -25,7 +26,7 @@ def request_bytes(url, *, method="GET", data=None, headers=None, token=None):
         "User-Agent": f"{USERNAME}-profile-updater",
         "Accept": "*/*",
     }
-    active_token = token or PROFILE_DATA_TOKEN
+    active_token = token or API_TOKEN
     if active_token and ("api.github.com" in url or "raw.githubusercontent.com" in url):
         h["Authorization"] = f"Bearer {active_token}"
     if headers:
@@ -58,31 +59,45 @@ def request_text(url):
 
 
 def get_repositories():
-    # Prefer authenticated owner listing. With a PAT secret this can include private repos.
+    # PROFILE_DATA_TOKEN enables account-wide/private repository discovery.
+    # Without it, fetch every public repository owned by the user.
     repos = []
-    tried_private = False
-    if PROFILE_DATA_TOKEN:
-        tried_private = True
-        try:
-            repos = request_json(
-                "https://api.github.com/user/repos"
-                "?per_page=100&sort=updated&visibility=all&affiliation=owner"
-            )
-        except Exception as exc:
-            print(f"Authenticated repository fetch failed, falling back to public repos: {exc}")
-            repos = []
+    private_capable = bool(PROFILE_DATA_TOKEN)
 
-    if not repos:
-        repos = request_json(
-            f"https://api.github.com/users/{USERNAME}/repos"
-            "?per_page=100&sort=updated&type=owner"
-        )
+    if private_capable:
+        page = 1
+        while True:
+            batch = request_json(
+                "https://api.github.com/user/repos"
+                f"?per_page=100&page={page}&sort=updated&visibility=all&affiliation=owner",
+                token=PROFILE_DATA_TOKEN,
+            )
+            if not batch:
+                break
+            repos.extend(batch)
+            if len(batch) < 100:
+                break
+            page += 1
+    else:
+        page = 1
+        while True:
+            batch = request_json(
+                f"https://api.github.com/users/{USERNAME}/repos"
+                f"?per_page=100&page={page}&sort=updated&type=owner",
+                token=None,
+            )
+            if not batch:
+                break
+            repos.extend(batch)
+            if len(batch) < 100:
+                break
+            page += 1
 
     repos = [
         repo for repo in repos
         if repo.get("owner", {}).get("login", "").lower() == USERNAME.lower()
     ]
-    return repos, tried_private
+    return repos, private_capable
 
 
 def get_languages_breakdown(repos):
@@ -274,239 +289,81 @@ def build_stack_panel(stack_items, repo_count, private_capable, y):
 
 
 def build_game_panel(y):
-    # Chrome-dino-inspired endless auto-play game rendered with pure SVG animations.
-    # Three phases loop forever, each phase runs faster than the previous one.
     return f"""
 <rect x="28" y="{y}" width="944" height="294" class="panel line" stroke-width="2.5"/>
 
-<!-- game viewport -->
+<!-- moon + stars decor -->
 <rect x="52" y="{y+38}" width="896" height="222" class="bg line" stroke-width="2.5"/>
-<rect x="52" y="{y+38}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
-<circle cx="77" cy="{y+59}" r="7" fill="none" class="line" stroke-width="2"/>
-<circle cx="100" cy="{y+59}" r="7" fill="none" class="line" stroke-width="2"/>
-<text x="129" y="{y+65}" class="mono-sm">offline-dino.exe</text>
 
-<!-- score -->
-<text x="852" y="{y+65}" class="mono-xs" text-anchor="end">HI 0042</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">0000</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="1;0;0;0;0;0;0;0;0;0" keyTimes="0;.10;.11;1" dur="18s" repeatCount="indefinite"/>
-  0008
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;1;0;0;0;0;0;0;0;0" keyTimes="0;.10;.20;.21;1" dur="18s" repeatCount="indefinite"/>
-  0016
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;1;0;0;0;0;0;0;0" keyTimes="0;.20;.30;.31;1" dur="18s" repeatCount="indefinite"/>
-  0024
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;1;0;0;0;0;0;0" keyTimes="0;.30;.40;.41;1" dur="18s" repeatCount="indefinite"/>
-  0032
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;1;0;0;0;0;0" keyTimes="0;.40;.50;.51;1" dur="18s" repeatCount="indefinite"/>
-  0040
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;1;0;0;0;0" keyTimes="0;.50;.60;.61;1" dur="18s" repeatCount="indefinite"/>
-  0048
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;0;1;0;0;0" keyTimes="0;.60;.70;.71;1" dur="18s" repeatCount="indefinite"/>
-  0058
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;0;0;1;0;0" keyTimes="0;.70;.80;.81;1" dur="18s" repeatCount="indefinite"/>
-  0068
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;1;0" keyTimes="0;.80;.90;.91;1" dur="18s" repeatCount="indefinite"/>
-  0078
-</text>
-<text x="917" y="{y+65}" class="mono-xs" text-anchor="end">
-  <animate attributeName="opacity" values="0;0;0;0;0;0;0;0;0;1" keyTimes="0;.90;.99;1;1" dur="18s" repeatCount="indefinite"/>
-  0090
-</text>
-
-<!-- environment -->
-<circle cx="800" cy="{y+112}" r="22" fill="none" class="softline" stroke-width="2"/>
-<g class="muted">
-  <path d="M170 {y+120} q10 -10 20 0 q4 -12 18 -8 q14 4 13 16 h-55 q-5 -10 4 -18z" fill="currentColor" opacity="0.55">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-46 0" dur="11s" repeatCount="indefinite"/>
-  </path>
-  <path d="M470 {y+103} q10 -10 20 0 q4 -12 18 -8 q14 4 13 16 h-55 q-5 -10 4 -18z" fill="currentColor" opacity="0.35">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-70 0" dur="16s" repeatCount="indefinite"/>
-  </path>
-</g>
-
-<!-- ground -->
-<line x1="76" y1="{y+220}" x2="924" y2="{y+220}" class="line" stroke-width="3"/>
-<g stroke="var(--softline)" stroke-width="2">
-  <line x1="108" y1="{y+228}" x2="148" y2="{y+228}">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-70 0" dur="1.2s" repeatCount="indefinite"/>
-  </line>
-  <line x1="315" y1="{y+228}" x2="365" y2="{y+228}">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-110 0" dur="1.6s" repeatCount="indefinite"/>
-  </line>
-  <line x1="620" y1="{y+228}" x2="690" y2="{y+228}">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-130 0" dur="1.1s" repeatCount="indefinite"/>
-  </line>
-  <line x1="820" y1="{y+228}" x2="880" y2="{y+228}">
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-140 0" dur="0.95s" repeatCount="indefinite"/>
-  </line>
-</g>
-
-<!-- phase labels -->
-<text x="786" y="{y+92}" class="mono-xs">speed ×1.0</text>
-<text x="786" y="{y+92}" class="mono-xs">
-  <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;.34;.35;1" dur="18s" repeatCount="indefinite"/>
-  speed ×1.4
-</text>
-<text x="786" y="{y+92}" class="mono-xs">
-  <animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.66;.67;1" dur="18s" repeatCount="indefinite"/>
-  speed ×1.8
-</text>
-
-<!-- dino runner -->
-<g class="fg">
+<!-- crescent moon -->
+<g>
+  <circle cx="760" cy="{y+142}" r="58" fill="var(--fg)">
+    <animate attributeName="opacity" values=".90;1;.90" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="786" cy="{y+122}" r="58" fill="var(--bg)"/>
   <animateTransform attributeName="transform" type="translate"
-    values="
-      0 0;
-      0 0;
-      0 -34;
-      0 -34;
-      0 0;
-      0 0;
-      0 -42;
-      0 -42;
-      0 0;
-      0 0;
-      0 -36;
-      0 -36;
-      0 0;
-      0 0;
-      0 -48;
-      0 -48;
-      0 0;
-      0 0;
-      0 -36;
-      0 -36;
-      0 0;
-      0 -44;
-      0 -44;
-      0 0;
-      0 0"
-    keyTimes="
-      0.00;
-      0.18;
-      0.205;
-      0.255;
-      0.30;
-      0.35;
-      0.392;
-      0.44;
-      0.50;
-      0.54;
-      0.575;
-      0.612;
-      0.66;
-      0.72;
-      0.747;
-      0.785;
-      0.815;
-      0.85;
-      0.874;
-      0.905;
-      0.93;
-      0.944;
-      0.97;
-      0.99;
-      1.0"
-    dur="18s" repeatCount="indefinite"/>
-  <!-- body -->
-  <rect x="155" y="{y+182}" width="24" height="26" fill="currentColor"/>
-  <rect x="178" y="{y+188}" width="10" height="12" fill="currentColor"/>
-  <rect x="149" y="{y+193}" width="8" height="8" fill="currentColor"/>
-  <rect x="160" y="{y+170}" width="15" height="16" fill="currentColor"/>
-  <rect x="171" y="{y+166}" width="8" height="8" fill="currentColor"/>
-  <rect x="173" y="{y+174}" width="3" height="3" fill="var(--bg)"/>
-  <rect x="187" y="{y+194}" width="3" height="14" fill="currentColor"/>
-  <!-- arms -->
-  <rect x="151" y="{y+197}" width="7" height="10" fill="currentColor">
-    <animate attributeName="height" values="10;6;10;6;10" dur="0.33s" repeatCount="indefinite"/>
-  </rect>
-  <rect x="154" y="{y+206}" width="5" height="7" fill="currentColor"/>
-  <!-- legs -->
-  <rect x="160" y="{y+208}" width="7" height="14" fill="currentColor">
-    <animate attributeName="height" values="14;8;14;8;14" dur="0.30s" repeatCount="indefinite"/>
-  </rect>
-  <rect x="171" y="{y+208}" width="7" height="14" fill="currentColor">
-    <animate attributeName="height" values="8;14;8;14;8" dur="0.30s" repeatCount="indefinite"/>
-  </rect>
+    values="0 0;0 -5;0 0" dur="6s" repeatCount="indefinite"/>
 </g>
 
-<!-- slow obstacles -->
+<!-- large stars -->
 <g class="fg">
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1030 0" dur="5.4s" begin="0s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+192}" width="10" height="28" fill="currentColor"/>
-    <rect x="942" y="{y+198}" width="9" height="22" fill="currentColor"/>
-    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
-    <rect x="939" y="{y+186}" width="4" height="9" fill="currentColor"/>
-  </g>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1030 0" dur="5.4s" begin="1.8s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+188}" width="11" height="32" fill="currentColor"/>
-    <rect x="944" y="{y+196}" width="9" height="24" fill="currentColor"/>
-    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
-    <rect x="940" y="{y+182}" width="4" height="10" fill="currentColor"/>
-  </g>
+  <path d="M176 {y+115} l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4z" fill="currentColor">
+    <animate attributeName="opacity" values=".25;1;.25" dur="2.4s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="scale" values="1;1.18;1" additive="sum" dur="2.4s" repeatCount="indefinite"/>
+  </path>
+  <path d="M338 {y+172} l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="currentColor">
+    <animate attributeName="opacity" values=".35;1;.35" dur="3.1s" repeatCount="indefinite"/>
+  </path>
+  <path d="M560 {y+104} l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4z" fill="currentColor">
+    <animate attributeName="opacity" values=".2;1;.2" dur="1.9s" repeatCount="indefinite"/>
+  </path>
+  <path d="M876 {y+188} l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="currentColor">
+    <animate attributeName="opacity" values=".3;1;.3" dur="2.7s" repeatCount="indefinite"/>
+  </path>
 </g>
 
-<!-- medium obstacles -->
-<g class="fg" opacity="0">
-  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;.33;.34;.66;1" dur="18s" repeatCount="indefinite"/>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1040 0" dur="4.2s" begin="6.1s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+195}" width="8" height="25" fill="currentColor"/>
-    <rect x="941" y="{y+187}" width="11" height="33" fill="currentColor"/>
-    <rect x="924" y="{y+203}" width="5" height="8" fill="currentColor"/>
-    <rect x="944" y="{y+181}" width="4" height="8" fill="currentColor"/>
-  </g>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1040 0" dur="4.2s" begin="7.55s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+192}" width="10" height="28" fill="currentColor"/>
-    <rect x="943" y="{y+201}" width="8" height="19" fill="currentColor"/>
-    <rect x="925" y="{y+201}" width="5" height="10" fill="currentColor"/>
-    <rect x="940" y="{y+187}" width="4" height="8" fill="currentColor"/>
-  </g>
+<!-- small drifting stars -->
+<g fill="var(--muted)">
+  <circle cx="110" cy="{y+180}" r="2">
+    <animate attributeName="opacity" values=".1;.9;.1" dur="1.7s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="{y+180};{y+174};{y+180}" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="230" cy="{y+215}" r="2.5">
+    <animate attributeName="opacity" values=".2;1;.2" dur="2.2s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="230;237;230" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="292" cy="{y+98}" r="1.8">
+    <animate attributeName="opacity" values=".15;.8;.15" dur="2.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="410" cy="{y+126}" r="2.2">
+    <animate attributeName="opacity" values=".1;1;.1" dur="1.5s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="{y+126};{y+120};{y+126}" dur="3.6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="486" cy="{y+214}" r="2">
+    <animate attributeName="opacity" values=".2;.9;.2" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="635" cy="{y+184}" r="2.4">
+    <animate attributeName="opacity" values=".15;1;.15" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="635;642;635" dur="4.7s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="705" cy="{y+95}" r="1.8">
+    <animate attributeName="opacity" values=".15;.85;.15" dur="3.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="835" cy="{y+112}" r="2.2">
+    <animate attributeName="opacity" values=".2;1;.2" dur="1.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="902" cy="{y+228}" r="2">
+    <animate attributeName="opacity" values=".1;.9;.1" dur="2.6s" repeatCount="indefinite"/>
+  </circle>
 </g>
 
-<!-- fast obstacles -->
-<g class="fg" opacity="0">
-  <animate attributeName="opacity" values="0;0;0;1;1" keyTimes="0;.66;.67;.68;1" dur="18s" repeatCount="indefinite"/>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="12.1s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+195}" width="9" height="25" fill="currentColor"/>
-    <rect x="942" y="{y+189}" width="10" height="31" fill="currentColor"/>
-    <rect x="925" y="{y+204}" width="5" height="8" fill="currentColor"/>
-  </g>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="13.12s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+190}" width="11" height="30" fill="currentColor"/>
-    <rect x="944" y="{y+198}" width="8" height="22" fill="currentColor"/>
-    <rect x="925" y="{y+200}" width="5" height="11" fill="currentColor"/>
-  </g>
-  <g>
-    <animateTransform attributeName="transform" type="translate" from="0 0" to="-1060 0" dur="3.1s" begin="14.05s" repeatCount="indefinite"/>
-    <rect x="930" y="{y+194}" width="8" height="26" fill="currentColor"/>
-    <rect x="941" y="{y+185}" width="11" height="35" fill="currentColor"/>
-    <rect x="944" y="{y+177}" width="4" height="8" fill="currentColor"/>
-  </g>
+<!-- faint constellation lines -->
+<g fill="none" stroke="var(--softline)" stroke-width="1.2" opacity=".35">
+  <path d="M110 {y+180} L176 {y+129} L230 {y+215} L338 {y+183}"/>
+  <path d="M410 {y+126} L486 {y+214} L560 {y+117} L635 {y+184}"/>
 </g>
 """
+
 
 def build_svg(repos, contributions, avatar_uri, languages, private_capable):
 
