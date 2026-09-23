@@ -2,12 +2,11 @@ name: Update profile
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 */6 * * *"
   push:
     paths:
-      - scripts/generate_profile.py
-      - .github/workflows/update-profile.yml
+      - "scripts/generate_profile.py"
+  schedule:
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: write
@@ -24,28 +23,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Delete old generated files
+      - name: Verify generator and remove previous profile
         run: |
+          python3 -m py_compile scripts/generate_profile.py
           git rm -f --ignore-unmatch profile.svg README.md
           rm -f profile.svg README.md
 
-      - name: Generate fresh SVG and README
+      - name: Generate new profile
         env:
-          GH_TOKEN: ${{ github.token }}
-          PROFILE_DATA_TOKEN: ${{ secrets.PROFILE_DATA_TOKEN }}
+          GH_TOKEN: \${{ github.token }}
+          PROFILE_DATA_TOKEN: \${{ secrets.PROFILE_DATA_TOKEN }}
         run: |
           python3 scripts/generate_profile.py
           test -s profile.svg
           test -s README.md
+          python3 -c "import xml.etree.ElementTree as E; E.parse('profile.svg')"
+          grep -q "activity-calendar.exe" profile.svg
 
-      - name: Commit generated files
+      - name: Commit regenerated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A profile.svg README.md
+          git add -A -- profile.svg README.md assets data/activity.json
           if git diff --cached --quiet; then
-            echo "Generated files are unchanged."
+            echo "No generated changes."
             exit 0
           fi
-          git commit -m "chore: regenerate profile [skip ci]"
+          git commit -m "chore: regenerate profile and activity"
           git push
