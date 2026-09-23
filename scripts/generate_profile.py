@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import base64
 import hashlib
 import json
@@ -57,8 +56,6 @@ def request_text(url):
 
 
 def get_repositories():
-    # Without PROFILE_DATA_TOKEN: fetch every public repository owned by the user.
-    # With PROFILE_DATA_TOKEN: fetch all owned repositories, including private ones.
     repos = []
     private_capable = bool(PROFILE_DATA_TOKEN)
 
@@ -288,63 +285,78 @@ def build_stack_panel(stack_items, repo_count, private_capable, y):
 def build_game_panel(y):
     return f"""
 <rect x="28" y="{y}" width="944" height="294" class="panel line" stroke-width="2.5"/>
-
-<!-- moon + stars decor -->
-<rect x="52" y="{y+38}" width="896" height="222" class="bg line" stroke-width="2.5"/>
-
-<!-- crescent moon -->
-<g>
+<defs><clipPath id="skyClip"><rect x="53" y="{y+39}" width="894" height="220"/></clipPath></defs>
+<g clip-path="url(#skyClip)">
+  <rect x="52" y="{y+38}" width="896" height="222" fill="#dff4ff">
+    <animate attributeName="fill" values="#dff4ff;#93c9f5;#111c3a;#0b1020;#93c9f5;#dff4ff" keyTimes="0;.20;.40;.64;.82;1" dur="24s" repeatCount="indefinite"/>
+  </rect>
   <g>
-    <animateTransform attributeName="transform" type="translate"
-      values="0 0;0 -6;0 0" dur="6s" repeatCount="indefinite"/>
-    <circle cx="770" cy="{y+142}" r="58" fill="var(--fg)" opacity=".95"/>
-    <circle cx="795" cy="{y+122}" r="58" fill="var(--bg)"/>
+    <animate attributeName="opacity" values="1;1;0;0;0;1" keyTimes="0;.21;.38;.65;.82;1" dur="24s" repeatCount="indefinite"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0 8;0 -22;0 8" dur="24s" repeatCount="indefinite"/>
+      <circle cx="770" cy="{y+115}" r="31" fill="#ffcf59"/>
+      <g stroke="#ffcf59" stroke-width="3">
+        <path d="M770 {y+67}v-12 M770 {y+163}v12 M722 {y+115}h-12 M818 {y+115}h12 M736 {y+81}l-8 -8 M804 {y+81}l8 -8 M736 {y+149}l-8 8 M804 {y+149}l8 8"/>
+      </g>
+    </g>
+    <g fill="#fff" opacity=".85">
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="-70 0;110 0;-70 0" dur="24s" repeatCount="indefinite"/>
+        <path d="M190 {y+126}q12 -17 28 -5q9 -22 30 -13q17 3 22 21h-81z"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="80 0;-80 0;80 0" dur="31s" repeatCount="indefinite"/>
+        <path d="M465 {y+105}q11 -16 25 -5q8 -18 27 -12q16 4 20 20h-72z"/>
+      </g>
+    </g>
   </g>
-</g>
-
-<!-- one floating star -->
-<g class="fg">
-  <g>
-    <animateTransform attributeName="transform" type="translate"
-      values="0 0;0 -10;0 0" dur="3.4s" repeatCount="indefinite"/>
-    <path d="M210 {y+148} l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5z" fill="currentColor"/>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;.29;.43;.72;.89;1" dur="24s" repeatCount="indefinite"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0 12;0 -8;0 12" dur="24s" repeatCount="indefinite"/>
+      <circle cx="770" cy="{y+116}" r="49" fill="#f6f7ec"/>
+      <circle cx="790" cy="{y+96}" r="49" fill="#0b1020"/>
+    </g>
+    <g fill="#f8fbff">
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="-18 6;22 -9;-18 6" dur="18s" repeatCount="indefinite"/>
+        <circle cx="115" cy="{y+118}" r="2"><animate attributeName="opacity" values=".35;1;.35" dur="2.3s" repeatCount="indefinite"/></circle>
+        <circle cx="218" cy="{y+170}" r="2.5"><animate attributeName="opacity" values="1;.4;1" dur="3.2s" repeatCount="indefinite"/></circle>
+        <path d="M170 {y+123}v20 M160 {y+133}h20" stroke="#fff" stroke-width="2"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="15 -7;-21 12;15 -7" dur="22s" repeatCount="indefinite"/>
+        <circle cx="325" cy="{y+106}" r="2"><animate attributeName="opacity" values=".25;1;.25" dur="1.8s" repeatCount="indefinite"/></circle>
+        <circle cx="410" cy="{y+183}" r="2.5"><animate attributeName="opacity" values="1;.2;1" dur="2.9s" repeatCount="indefinite"/></circle>
+        <path d="M354 {y+149}v16 M346 {y+157}h16" stroke="#fff" stroke-width="2"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="-12 -9;27 8;-12 -9" dur="26s" repeatCount="indefinite"/>
+        <circle cx="520" cy="{y+119}" r="2"><animate attributeName="opacity" values=".3;1;.3" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="612" cy="{y+199}" r="2.5"><animate attributeName="opacity" values=".9;.2;.9" dur="2.4s" repeatCount="indefinite"/></circle>
+        <path d="M563 {y+160}v18 M554 {y+169}h18" stroke="#fff" stroke-width="2"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="10 8;-22 -12;10 8" dur="20s" repeatCount="indefinite"/>
+        <circle cx="840" cy="{y+181}" r="2"><animate attributeName="opacity" values=".2;1;.2" dur="2.1s" repeatCount="indefinite"/></circle>
+        <circle cx="899" cy="{y+109}" r="2.5"><animate attributeName="opacity" values="1;.3;1" dur="3.4s" repeatCount="indefinite"/></circle>
+      </g>
+    </g>
   </g>
-</g>
-
-<!-- quiet twinkling stars -->
-<g fill="var(--fg)" opacity=".85">
-  <circle cx="116" cy="{y+118}" r="2"><animate attributeName="opacity" values=".20;.95;.20" dur="2.1s" repeatCount="indefinite"/></circle>
-  <circle cx="170" cy="{y+208}" r="2.4"><animate attributeName="opacity" values=".25;.90;.25" dur="2.8s" repeatCount="indefinite"/></circle>
-  <circle cx="324" cy="{y+102}" r="1.8"><animate attributeName="opacity" values=".18;.85;.18" dur="3.1s" repeatCount="indefinite"/></circle>
-  <circle cx="412" cy="{y+180}" r="2.1"><animate attributeName="opacity" values=".18;.80;.18" dur="2.3s" repeatCount="indefinite"/></circle>
-  <circle cx="520" cy="{y+124}" r="2.2"><animate attributeName="opacity" values=".20;.92;.20" dur="1.9s" repeatCount="indefinite"/></circle>
-  <circle cx="610" cy="{y+205}" r="2"><animate attributeName="opacity" values=".22;.88;.22" dur="2.7s" repeatCount="indefinite"/></circle>
-  <circle cx="874" cy="{y+196}" r="2.1"><animate attributeName="opacity" values=".20;.90;.20" dur="2.5s" repeatCount="indefinite"/></circle>
-</g>
-
-<!-- little sparkle stars -->
-<g class="fg">
-  <path d="M335 {y+160} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
-    <animate attributeName="opacity" values=".15;1;.15" dur="2.0s" repeatCount="indefinite"/>
+  <path d="M53 {y+219} C128 {y+197} 196 {y+241} 269 {y+219} S410 {y+197} 480 {y+219} S620 {y+241} 690 {y+219} S829 {y+197} 947 {y+219} L947 {y+261} L53 {y+261}Z" fill="#568ab0" opacity=".76">
+    <animate attributeName="d" dur="3.5s" repeatCount="indefinite"
+      values="M53 {y+219} C128 {y+197} 196 {y+241} 269 {y+219} S410 {y+197} 480 {y+219} S620 {y+241} 690 {y+219} S829 {y+197} 947 {y+219} L947 {y+261} L53 {y+261}Z;
+              M53 {y+219} C128 {y+241} 196 {y+197} 269 {y+219} S410 {y+241} 480 {y+219} S620 {y+197} 690 {y+219} S829 {y+241} 947 {y+219} L947 {y+261} L53 {y+261}Z;
+              M53 {y+219} C128 {y+197} 196 {y+241} 269 {y+219} S410 {y+197} 480 {y+219} S620 {y+241} 690 {y+219} S829 {y+197} 947 {y+219} L947 {y+261} L53 {y+261}Z"/>
   </path>
-  <path d="M560 {y+192} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
-    <animate attributeName="opacity" values=".15;1;.15" dur="2.9s" repeatCount="indefinite"/>
-  </path>
-  <path d="M892 {y+108} l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="currentColor">
-    <animate attributeName="opacity" values=".15;1;.15" dur="1.8s" repeatCount="indefinite"/>
+  <path d="M53 {y+235} C128 {y+220} 196 {y+252} 269 {y+235} S410 {y+220} 480 {y+235} S620 {y+252} 690 {y+235} S829 {y+220} 947 {y+235}" fill="none" stroke="#b7e4ff" stroke-width="2" opacity=".7">
+    <animate attributeName="d" dur="4.1s" repeatCount="indefinite"
+      values="M53 {y+235} C128 {y+220} 196 {y+252} 269 {y+235} S410 {y+220} 480 {y+235} S620 {y+252} 690 {y+235} S829 {y+220} 947 {y+235};
+              M53 {y+235} C128 {y+252} 196 {y+220} 269 {y+235} S410 {y+252} 480 {y+235} S620 {y+220} 690 {y+235} S829 {y+252} 947 {y+235};
+              M53 {y+235} C128 {y+220} 196 {y+252} 269 {y+235} S410 {y+220} 480 {y+235} S620 {y+252} 690 {y+235} S829 {y+220} 947 {y+235}"/>
   </path>
 </g>
-
-<!-- subtle hill / horizon -->
-<path d="M90 {y+222} C170 {y+205}, 250 {y+236}, 330 {y+222}
-         S490 {y+206}, 570 {y+222}
-         S730 {y+238}, 810 {y+222}
-         S880 {y+210}, 910 {y+222}"
-      fill="none" class="line" stroke-width="3"/>
-<g stroke="var(--softline)" stroke-width="1.3" opacity=".35" fill="none">
-  <path d="M116 {y+118} L210 {y+170} L324 {y+102}"/>
-  <path d="M412 {y+180} L520 {y+124} L610 {y+205}"/>
-</g>
+<rect x="52" y="{y+38}" width="896" height="222" fill="none" class="line" stroke-width="2.5"/>
 """
 
 
