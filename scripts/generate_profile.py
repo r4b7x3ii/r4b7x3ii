@@ -369,12 +369,12 @@ def build_game_panel(y):
 <defs><clipPath id="skyClip"><rect x="53" y="{y+39}" width="894" height="220"/></clipPath></defs>
 <g clip-path="url(#skyClip)">
   <rect x="52" y="{y+38}" width="896" height="222" fill="#dff4ff">
-    <animate attributeName="fill" values="#dff4ff;#93c9f5;#111c3a;#0b1020;#93c9f5;#dff4ff" keyTimes="0;.20;.40;.64;.82;1" dur="24s" repeatCount="indefinite"/>
+    <animate attributeName="fill" values="#dff4ff;#e8edff;#f9c58f;#bd8dad;#39496f;#0b1020;#1e315b;#7598c6;#dff4ff" keyTimes="0;.13;.24;.35;.46;.59;.72;.85;1" dur="36s" repeatCount="indefinite"/>
   </rect>
   <g>
-    <animate attributeName="opacity" values="1;1;0;0;0;1" keyTimes="0;.21;.38;.65;.82;1" dur="24s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;1;1;.55;0;0;0;.6;1" keyTimes="0;.13;.24;.35;.46;.59;.72;.85;1" dur="36s" repeatCount="indefinite"/>
     <g>
-      <animateTransform attributeName="transform" type="translate" values="0 8;0 -22;0 8" dur="24s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0 8;0 -22;0 8" dur="36s" repeatCount="indefinite"/>
       <circle cx="770" cy="{y+115}" r="31" fill="#ffcf59"/>
       <g stroke="#ffcf59" stroke-width="3">
         <path d="M770 {y+67}v-12 M770 {y+163}v12 M722 {y+115}h-12 M818 {y+115}h12 M736 {y+81}l-8 -8 M804 {y+81}l8 -8 M736 {y+149}l-8 8 M804 {y+149}l8 8"/>
@@ -382,19 +382,23 @@ def build_game_panel(y):
     </g>
     <g fill="#fff" opacity=".85">
       <g>
-        <animateTransform attributeName="transform" type="translate" values="-70 0;110 0;-70 0" dur="24s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="translate" values="-205 0;0 0;185 0" dur="36s" repeatCount="indefinite"/>
         <path d="M190 {y+126}q12 -17 28 -5q9 -22 30 -13q17 3 22 21h-81z"/>
       </g>
       <g>
-        <animateTransform attributeName="transform" type="translate" values="80 0;-80 0;80 0" dur="31s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="translate" values="170 0;-55 0;-220 0" dur="43s" repeatCount="indefinite"/>
         <path d="M465 {y+105}q11 -16 25 -5q8 -18 27 -12q16 4 20 20h-72z"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="-240 0;65 0;280 0" dur="49s" repeatCount="indefinite"/>
+        <path d="M686 {y+152}q11 -15 25 -7q8 -19 27 -13q19 3 23 23h-75z" opacity=".78"/>
       </g>
     </g>
   </g>
   <g opacity="0">
-    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;.29;.43;.72;.89;1" dur="24s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0;0;.5;1;1;1;.3;0" keyTimes="0;.13;.24;.35;.46;.59;.72;.85;1" dur="36s" repeatCount="indefinite"/>
     <g>
-      <animateTransform attributeName="transform" type="translate" values="0 12;0 -8;0 12" dur="24s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0 12;0 -8;0 12" dur="36s" repeatCount="indefinite"/>
       <circle cx="770" cy="{y+116}" r="49" fill="#f6f7ec"/>
       <circle cx="790" cy="{y+96}" r="49" fill="#0b1020"/>
     </g>
