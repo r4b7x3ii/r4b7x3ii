@@ -276,7 +276,7 @@ def build_calendar_panel(contributions, activity, y):
         f'<text x="58" y="{y+58}" class="section">Contribution / Activity</text>'
         f'<text x="772" y="{y+55}" class="mono-xs">last 90 days</text>'
         + heatmap(52, y+96, "contributions.exe", contributions, "cell")
-        + heatmap(528, y+96, "activity.exe", activity, "act")
+        + heatmap(528, y+96, "activity-calendar.exe", activity, "act")
     )
 
 
