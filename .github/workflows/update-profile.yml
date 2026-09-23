@@ -4,9 +4,17 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
+  push:
+    paths:
+      - scripts/generate_profile.py
+      - .github/workflows/update-profile.yml
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-profile
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -16,27 +24,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Remove previous generated files
+      - name: Delete old generated files
         run: |
-          rm -f profile.svg
-          rm -f README.md
+          git rm -f --ignore-unmatch profile.svg README.md
+          rm -f profile.svg README.md
 
-      - name: Generate profile
+      - name: Generate fresh SVG and README
         env:
           GH_TOKEN: ${{ github.token }}
           PROFILE_DATA_TOKEN: ${{ secrets.PROFILE_DATA_TOKEN }}
-        run: python3 scripts/generate_profile.py
-
-      - name: Commit generated profile
         run: |
-          if git diff --quiet -- profile.svg README.md; then
-            echo "Profile is already up to date."
-            exit 0
-          fi
+          python3 scripts/generate_profile.py
+          test -s profile.svg
+          test -s README.md
 
+      - name: Commit generated files
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add -A profile.svg README.md
-          git commit -m "chore: refresh profile"
+          if git diff --cached --quiet; then
+            echo "Generated files are unchanged."
+            exit 0
+          fi
+          git commit -m "chore: regenerate profile [skip ci]"
           git push
