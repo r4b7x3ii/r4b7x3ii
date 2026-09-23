@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -199,6 +199,87 @@ def get_contributions():
         return {}
 
 
+def get_activity_levels():
+    counts = {}
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    for page in range(1, 4):
+        try:
+            events = request_json(
+                f"https://api.github.com/users/{USERNAME}/events/public?per_page=100&page={page}"
+            )
+        except Exception as exc:
+            print(f"Activity data unavailable: {exc}")
+            break
+        if not events:
+            break
+        older = False
+        for event in events:
+            try:
+                stamp = datetime.fromisoformat(event.get("created_at", "").replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if stamp < cutoff:
+                older = True
+                continue
+            payload = event.get("payload") or {}
+            amount = len(payload.get("commits") or []) or payload.get("size") or 1
+            weight = min(4, int(amount)) if event.get("type") == "PushEvent" else 1
+            key = stamp.date().isoformat()
+            counts[key] = counts.get(key, 0) + weight
+        if older or len(events) < 100:
+            break
+    return {day: (1 if count == 1 else 2 if count <= 3 else 3 if count <= 6 else 4)
+            for day, count in counts.items()}
+
+
+def heatmap(x, y, caption, levels, palette):
+    out = [
+        f'<rect x="{x}" y="{y}" width="420" height="230" class="bg line" stroke-width="2"/>',
+        f'<rect x="{x}" y="{y}" width="420" height="42" class="panel2 line" stroke-width="2"/>',
+        f'<circle cx="{x+24}" cy="{y+21}" r="7" fill="none" class="line" stroke-width="2"/>',
+        f'<circle cx="{x+47}" cy="{y+21}" r="7" fill="none" class="line" stroke-width="2"/>',
+        f'<text x="{x+73}" y="{y+27}" class="mono-sm">{escape(caption)}</text>',
+    ]
+    today = date.today()
+    sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+    first = sunday - timedelta(weeks=12)
+    sx, sy = x + 72, y + 82
+    last_month = None
+    for week in range(13):
+        base = first + timedelta(weeks=week)
+        month = base.strftime("%b")
+        if month != last_month:
+            out.append(f'<text x="{sx+week*21}" y="{y+67}" class="mono-xs">{month}</text>')
+            last_month = month
+        for day_in_week in range(7):
+            day = base + timedelta(days=day_in_week)
+            level = max(0, min(4, int(levels.get(day.isoformat(), 0))))
+            out.append(
+                f'<rect x="{sx+week*21}" y="{sy+day_in_week*17}" width="15" height="13" '
+                f'fill="var(--{palette}{level})" class="pixel"/>'
+            )
+    for label, row in [("Mon", 1), ("Wed", 3), ("Fri", 5)]:
+        out.append(f'<text x="{x+18}" y="{sy+row*17+11}" class="mono-xs">{label}</text>')
+    out.append(f'<text x="{x+18}" y="{y+218}" class="mono-xs">Less</text>')
+    for level in range(5):
+        out.append(
+            f'<rect x="{x+62+level*20}" y="{y+207}" width="13" height="13" '
+            f'fill="var(--{palette}{level})"/>'
+        )
+    out.append(f'<text x="{x+171}" y="{y+218}" class="mono-xs">More</text>')
+    return "".join(out)
+
+
+def build_calendar_panel(contributions, activity, y):
+    return (
+        f'<rect x="28" y="{y}" width="944" height="360" class="panel line" stroke-width="2.5"/>'
+        f'<text x="58" y="{y+58}" class="section">Contribution / Activity</text>'
+        f'<text x="772" y="{y+55}" class="mono-xs">last 90 days</text>'
+        + heatmap(52, y+96, "contributions.exe", contributions, "cell")
+        + heatmap(528, y+96, "activity.exe", activity, "act")
+    )
+
+
 def get_avatar_data_uri():
     user = request_json(f"https://api.github.com/users/{USERNAME}")
     avatar_url = user.get("avatar_url")
@@ -360,7 +441,7 @@ def build_game_panel(y):
 """
 
 
-def build_svg(repos, contributions, avatar_uri, languages, private_capable):
+def build_svg(repos, contributions, activity, avatar_uri, languages, private_capable):
     repo_count = len(repos)
     top_langs = list(languages.items())[:5]
     stack_items = []
@@ -388,12 +469,14 @@ def build_svg(repos, contributions, avatar_uri, languages, private_capable):
     --bg:#ffffff; --panel:#f5f5f5; --panel2:#eeeeee;
     --fg:#111111; --muted:#5d5d5d; --line:#111111; --softline:#b7b7b7;
     --cell0:#ececec; --cell1:#c9c9c9; --cell2:#969696; --cell3:#5c5c5c; --cell4:#111111;
+    --act0:#e6f2ff; --act1:#a8d9ff; --act2:#67b7ff; --act3:#267bf1; --act4:#0c3b87;
   }}
   @media (prefers-color-scheme: dark) {{
     :root {{
       --bg:#0d1117; --panel:#161b22; --panel2:#21262d;
       --fg:#f0f6fc; --muted:#8b949e; --line:#f0f6fc; --softline:#484f58;
       --cell0:#21262d; --cell1:#30363d; --cell2:#6e7681; --cell3:#b1bac4; --cell4:#f0f6fc;
+      --act0:#18283d; --act1:#1b4479; --act2:#246db8; --act3:#58a6ff; --act4:#a5d4ff;
     }}
   }}
   .bg{{fill:var(--bg)}} .panel{{fill:var(--panel)}} .panel2{{fill:var(--panel2)}}
@@ -436,52 +519,7 @@ def build_svg(repos, contributions, avatar_uri, languages, private_capable):
         out.append('<rect x="560" y="104" width="360" height="280" class="panel2"/>')
     out.append('<rect x="560" y="104" width="360" height="280" fill="none" class="line" stroke-width="2"/>')
 
-    out.append(f'''
-<rect x="28" y="{chart_y}" width="944" height="{chart_h}" class="panel line" stroke-width="2.5"/>
-<text x="58" y="{chart_y+58}" class="section">Contribution Chart</text>
-
-<rect x="52" y="{chart_y+92}" width="896" height="224" class="bg line" stroke-width="2.5"/>
-<rect x="52" y="{chart_y+92}" width="896" height="42" class="panel2 line" stroke-width="2.5"/>
-<circle cx="77" cy="{chart_y+113}" r="7" fill="none" class="line" stroke-width="2"/>
-<circle cx="100" cy="{chart_y+113}" r="7" fill="none" class="line" stroke-width="2"/>
-<text x="129" y="{chart_y+119}" class="mono-sm">contributions.exe</text>
-''')
-
-    today = date.today()
-    days_since_sunday = (today.weekday() + 1) % 7
-    current_sunday = today - timedelta(days=days_since_sunday)
-    first_sunday = current_sunday - timedelta(weeks=52)
-
-    last_month = None
-    for c in range(53):
-        week_start = first_sunday + timedelta(weeks=c)
-        month = week_start.strftime("%b")
-        if month != last_month:
-            x = 122 + c * 15
-            if x < 915:
-                out.append(f'<text x="{x}" y="{chart_y+164}" class="mono-xs">{month}</text>')
-            last_month = month
-
-    for label, yy in [("Mon", chart_y+197), ("Wed", chart_y+227), ("Fri", chart_y+257)]:
-        out.append(f'<text x="70" y="{yy}" class="mono-xs">{label}</text>')
-
-    start_x, start_y, cell, gap = 122, chart_y + 178, 11, 4
-    for c in range(53):
-        week_start = first_sunday + timedelta(weeks=c)
-        for r in range(7):
-            day = week_start + timedelta(days=r)
-            level = contributions.get(day.isoformat(), 0)
-            out.append(f'<rect x="{start_x+c*(cell+gap)}" y="{start_y+r*(cell+gap)}" width="{cell}" height="{cell}" fill="var(--cell{level})" class="pixel"/>')
-
-    out.append(f'''
-<text x="70" y="{chart_y+298}" class="mono-xs">Less</text>
-<rect x="122" y="{chart_y+286}" width="14" height="14" fill="var(--cell0)"/>
-<rect x="144" y="{chart_y+286}" width="14" height="14" fill="var(--cell1)"/>
-<rect x="166" y="{chart_y+286}" width="14" height="14" fill="var(--cell2)"/>
-<rect x="188" y="{chart_y+286}" width="14" height="14" fill="var(--cell3)"/>
-<rect x="210" y="{chart_y+286}" width="14" height="14" fill="var(--cell4)"/>
-<text x="234" y="{chart_y+298}" class="mono-xs">More</text>
-''')
+    out.append(build_calendar_panel(contributions, activity, chart_y))
 
     out.append(build_stack_panel(stack_items, repo_count, private_capable, stack_y))
     out.append(build_game_panel(game_y))
@@ -535,6 +573,7 @@ def main():
     repos, private_capable = get_repositories()
     languages = get_languages_breakdown(repos)
     contributions = get_contributions()
+    activity = get_activity_levels()
     avatar_uri = get_avatar_data_uri()
 
     try:
@@ -542,7 +581,9 @@ def main():
     except FileNotFoundError:
         pass
 
-    svg_text = build_svg(repos, contributions, avatar_uri, languages, private_capable)
+    svg_text = build_svg(repos, contributions, activity, avatar_uri, languages, private_capable)
+    build_id = os.getenv("GITHUB_RUN_ID") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    svg_text = svg_text.replace("</svg>", f'<metadata id="build">{escape(build_id)}</metadata></svg>')
     PROFILE_SVG.write_text(svg_text, encoding="utf-8")
     write_readme(svg_text)
 
