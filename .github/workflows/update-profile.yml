@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "scripts/generate_profile.py"
+      - ".github/workflows/update-profile.yml"
   schedule:
     - cron: "17 */6 * * *"
 
@@ -31,8 +32,8 @@ jobs:
 
       - name: Generate new profile
         env:
-          GH_TOKEN: \${{ github.token }}
-          PROFILE_DATA_TOKEN: \${{ secrets.PROFILE_DATA_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PROFILE_DATA_TOKEN: ${{ secrets.PROFILE_DATA_TOKEN }}
         run: |
           python3 scripts/generate_profile.py
           test -s profile.svg
@@ -44,7 +45,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- profile.svg README.md assets data/activity.json
+          git add -A -- profile.svg README.md
           if git diff --cached --quiet; then
             echo "No generated changes."
             exit 0
