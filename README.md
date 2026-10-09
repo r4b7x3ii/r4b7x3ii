@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/r4b7x3ii/r4b7x3ii/main/profile.svg?v=78f919b012ed"
+<img src="https://raw.githubusercontent.com/r4b7x3ii/r4b7x3ii/main/profile.svg?v=5fd6ed2de552"
      alt="r4b7x3ii — Known as Werus"
      width="100%" />
 
